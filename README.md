@@ -1,6 +1,4 @@
 # Eden
-![image](https://github.com/user-attachments/assets/91380226-d7b8-4721-9f78-3d7cc8ae539e)
-
 Personalized, automated deployment of a modular offensive security environment tailored for WSL or VMWare on Debian.
 
 ## Features
