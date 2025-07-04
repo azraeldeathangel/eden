@@ -267,19 +267,104 @@ install_vmware_tools() {
   for tool in "${TOOLS[@]}"; do
     install_pkg "$tool"
   done
+}
 
-# Exegol
-if ! command -v exegol >/dev/null 2>&1; then
-  log_info "Installing Exegol..."
-  if pipx install exegol > /dev/null 2>&1; then
-    pipx ensurepath > /dev/null 2>&1
-    log_success "Exegol installed."
-  else
-    log_error "Failed to install Exegol"
+install_eden_ad_tools() {
+  local REPO_DIR="/opt/eden-ad-tools"
+  local IMAGE_NAME="eden-ad-tools"
+  local LOOT_DIR="/home/$USERNAME/loot"
+  local DOCKERFILE="$REPO_DIR/Dockerfile"
+  local WRAPPER="/usr/local/bin/eden"
+
+  log_info "Setting up Eden AD tools Docker container..."
+
+  # Create /opt/eden-ad-tools directory
+  if [ ! -d "$REPO_DIR" ]; then
+    sudo -A mkdir -p "$REPO_DIR"
+    sudo -A chown "$USERNAME:$USERNAME" "$REPO_DIR"
   fi
-else
-  log_already "Exegol"
-fi
+
+  # Write Dockerfile
+  cat <<EOF | sudo -u "$USERNAME" tee "$DOCKERFILE" > /dev/null
+FROM python:3.11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PIPX_HOME=/root/.local/pipx
+ENV PATH=\$PIPX_HOME/venvs/impacket/bin:\$PIPX_HOME/venvs/ldapdomaindump/bin:\$PIPX_HOME/venvs/crackmapexec/bin:\$PATH
+
+RUN apt-get update && \\
+    apt-get install -y --no-install-recommends \\
+        build-essential git gcc libldap2-dev libsasl2-dev libssl-dev \\
+        python3-dev python3-pip pipx \\
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir pipx && \\
+    pipx ensurepath && \\
+    pipx install git+https://github.com/fortra/impacket.git && \\
+    pipx install git+https://github.com/Pennyw0rth/NetExec && \\
+    pipx install crackmapexec
+
+WORKDIR /loot
+CMD ["/bin/bash"]
+EOF
+
+  log_success "Dockerfile created at $DOCKERFILE"
+
+  # Build Docker image
+  sudo -u "$USERNAME" bash -c "cd '$REPO_DIR' && docker build -t '$IMAGE_NAME' --platform=linux/amd64 ."
+
+  # Create loot directory
+  mkdir -p "$LOOT_DIR"
+  sudo -A chown "$USERNAME:$USERNAME" "$LOOT_DIR"
+
+  # Write /usr/local/bin/eden wrapper script
+  sudo tee "$WRAPPER" > /dev/null <<EOF
+#!/bin/bash
+
+IMAGE="$IMAGE_NAME"
+LOOT_DIR="/home/$USERNAME/loot"
+
+print_help() {
+  echo "Usage: eden [command]"
+  echo "Commands:"
+  echo "  shell           Start interactive container"
+  echo "  exec \"<cmd>\"    Execute command inside container"
+  echo "  ps              Show running Eden containers"
+}
+
+case "\$1" in
+  shell)
+    exec sudo docker run --rm -it \\
+      --network host \\
+      -v "\$LOOT_DIR:/loot" \\
+      "\$IMAGE"
+    ;;
+  exec)
+    shift
+    if [ \$# -eq 0 ]; then
+      echo "Missing command. Usage: eden exec \"<command>\""
+      exit 1
+    fi
+    exec sudo docker run --rm -it \\
+      --network host \\
+      -v "\$LOOT_DIR:/loot" \\
+      "\$IMAGE" /bin/bash -c "\$*"
+    ;;
+  ps)
+    sudo docker ps --filter ancestor="\$IMAGE"
+    ;;
+  help|-h|--help)
+    print_help
+    ;;
+  *)
+    echo "Unknown command. Try: eden help"
+    exit 1
+    ;;
+esac
+EOF
+
+  sudo chmod +x "$WRAPPER"
+  log_success "Wrapper script installed at $WRAPPER"
 }
 
 configure_bashrc() {
