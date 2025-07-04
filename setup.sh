@@ -1,6 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-trap 'cleanup' EXIT
 
 # ===============================
 # Globals
@@ -200,7 +199,7 @@ install_golang() {
   fi
 }
 
-install web_recon_tools() {
+web_recon_tools() {
    # FFUF
    # KATANA
    # WAYMORE
