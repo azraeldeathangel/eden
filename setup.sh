@@ -290,7 +290,6 @@ RUN pip install --no-cache-dir pipx && \\
     pipx ensurepath && \\
     pipx install git+https://github.com/fortra/impacket.git && \\
     pipx install git+https://github.com/Pennyw0rth/NetExec && \\
-    pipx install crackmapexec
 
 WORKDIR /loot
 CMD ["/bin/bash"]
