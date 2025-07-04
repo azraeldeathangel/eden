@@ -163,8 +163,6 @@ install_impacket() {
   fi
 }
 
-
-
 install_zellij() {
   if ! command -v zellij >/dev/null 2>&1; then
     log_info "Installing Zellij..."
@@ -200,6 +198,17 @@ install_golang() {
   else
     log_already "Golang"
   fi
+}
+
+install web_recon_tools() {
+   # FFUF
+   # KATANA
+   # WAYMORE
+   # HTTPX
+   # SUBBRUTE
+   # SUBLIST3R
+   # NUCLEI
+   # FEROX BUSTER
 }
 
 install_vmware_tools() {
