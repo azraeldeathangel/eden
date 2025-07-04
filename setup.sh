@@ -406,6 +406,7 @@ main() {
   install_golang
   if [ "$INSTALL_ENV" = "VMWare" ]; then
     install_vmware_tools
+    install_eden_ad_tools
   fi
   configure_bashrc
   log_success "Initial setup complete. Restart your terminal session."
