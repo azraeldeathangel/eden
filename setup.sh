@@ -150,18 +150,6 @@ EOF
   log_success "Kali Linux repository and key configured."
 }
 
-install_impacket() {
-  log_info "Installing Impacket via pipx..."
-
-  if pipx list | grep -q "impacket"; then
-    log_already "Impacket (pipx)"
-  else
-    silent_run pipx install git+https://github.com/fortra/impacket.git
-    pipx ensurepath
-    log_success "Impacket installed via pipx."
-  fi
-}
-
 install_zellij() {
   if ! command -v zellij >/dev/null 2>&1; then
     log_info "Installing Zellij..."
