@@ -199,17 +199,6 @@ install_golang() {
   fi
 }
 
-web_recon_tools() {
-   # FFUF
-   # KATANA
-   # WAYMORE
-   # HTTPX
-   # SUBBRUTE
-   # SUBLIST3R
-   # NUCLEI
-   # FEROX BUSTER
-}
-
 install_vmware_tools() {
   log_info "Setting up VMWare-specific tools..."
 
