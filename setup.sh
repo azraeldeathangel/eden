@@ -257,6 +257,23 @@ install_vmware_tools() {
   done
 }
 
+ensure_docker_group_active() {
+  if ! groups "$USERNAME" | grep -qw docker; then
+    log_info "Adding $USERNAME to the docker group..."
+    silent_run sudo -A usermod -aG docker "$USERNAME"
+    log_warn "$USERNAME has been added to the docker group."
+
+    echo
+    log_warn "Launching a new shell with updated group membership..."
+    exec sudo -u "$USERNAME" newgrp docker <<EOF
+bash -c "$0"
+EOF
+    exit 0
+  else
+    log_success "$USERNAME is already in the docker group."
+  fi
+}
+
 install_eden_ad_tools() {
   local REPO_DIR="/opt/eden-ad-tools"
   local IMAGE_NAME="eden-ad-tools"
@@ -294,7 +311,7 @@ install_eden_ad_tools() {
   
   WORKDIR /loot
   CMD ["/bin/bash"]
-  EOF
+EOF
   
     log_success "Dockerfile created at $DOCKERFILE"
   else
@@ -302,7 +319,11 @@ install_eden_ad_tools() {
   fi
 
   # Build Docker image
-  silent_run sudo -u "$USERNAME" bash -c "cd '$REPO_DIR' && docker build -t '$IMAGE_NAME' --platform=linux/amd64 ."
+  if [[ -z $(docker images -q "$IMAGE_NAME") ]]; then
+    silent_run sudo -u "$USERNAME" bash -c "cd '$REPO_DIR' && docker build -t '$IMAGE_NAME' --platform=linux/amd64 . > /dev/null 2>&1"
+  else
+    log_already "Docker image '$IMAGE_NAME' already exists. Skipping build."
+  fi
 
   # Create loot directory
   mkdir -p "$LOOT_DIR"
@@ -353,7 +374,7 @@ install_eden_ad_tools() {
       exit 1
       ;;
   esac
-  EOF
+EOF
   
     sudo chmod +x "$WRAPPER"
     log_success "Wrapper script installed at $WRAPPER"
@@ -401,6 +422,7 @@ main() {
   install_golang
   if [ "$INSTALL_ENV" = "VMWare" ]; then
     install_vmware_tools
+    ensure_docker_group_active
     install_eden_ad_tools
   fi
   configure_bashrc
