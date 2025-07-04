@@ -296,7 +296,7 @@ install_eden_ad_tools() {
   
   ENV DEBIAN_FRONTEND=noninteractive
   ENV PIPX_HOME=/root/.local/pipx
-  ENV PATH=\$PIPX_HOME/venvs/impacket/bin:\$PIPX_HOME/venvs/ldapdomaindump/bin:\$PIPX_HOME/venvs/crackmapexec/bin:\$PATH
+  ENV PATH=/root/.local/bin:\$PIPX_HOME/venvs/impacket/bin:\$PIPX_HOME/venvs/ldapdomaindump/bin:\$PIPX_HOME/venvs/crackmapexec/bin:\$PATH
   
   RUN apt-get update && \\
       apt-get install -y --no-install-recommends \\
