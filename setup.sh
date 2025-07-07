@@ -100,7 +100,7 @@ update_system() {
 }
 
 install_core_packages() {
-  local -r CORE_PKGS=(curl git python3 python3-pip python3-venv pipx unzip gcc vim binwalk file binutils nmap)
+  local -r CORE_PKGS=(curl git python3 python3-pip python3-venv pipx unzip gcc vim binwalk file binutils nmap axel)
   for pkg in "${CORE_PKGS[@]}"; do
     install_pkg "$pkg"
   done
