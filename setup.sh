@@ -193,8 +193,6 @@ install_golang() {
 install_vmware_tools() {
   log_info "Setting up VMWare-specific tools..."
 
-  install_burpsuite_pro
-
   # Docker
   if ! command -v docker >/dev/null 2>&1; then
     log_info "Installing Docker..."
@@ -258,15 +256,12 @@ EOF
   fi
 }
 
-install_burpsuite_pro() {
+install_java() {
   local -r JAVA_URL="https://download.java.net/java/GA/jdk23.0.2/6da2a6609d6e406f85c491fcb119101b/7/GPL/openjdk-23.0.2_linux-x64_bin.tar.gz"
   local -r JAVA_DIR="/opt/jdk"
   local -r JAVA_HOME="$JAVA_DIR/jdk-23.0.2"
   local -r JAVA_BIN="$JAVA_HOME/bin/java"
-  local -r BURP_DIR="/opt/Burpsuite-Professional"
-  local -r BURP_WRAPPER="/usr/local/bin/burpsuitepro"
 
-  # Download and install Java
   if [ ! -x "$JAVA_BIN" ]; then
     log_info "Downloading OpenJDK 23..."
     sudo -A mkdir -p "$JAVA_DIR"
@@ -277,35 +272,6 @@ install_burpsuite_pro() {
     log_success "OpenJDK 23 installed and set as default Java."
   else
     log_already "OpenJDK 23"
-  fi
-
-  # Clone Burp loader and run loader.jar
-  if [ ! -d "$BURP_DIR" ]; then
-    log_info "Cloning Burp Suite Pro loader..."
-    sudo -A git clone https://github.com/xiv3r/Burpsuite-Professional "$BURP_DIR"
-    sudo -A chown -R "$USERNAME:$USERNAME" "$BURP_DIR"
-  else
-    log_already "Burp Suite loader repo"
-  fi
-
-  if [ ! -f "$BURP_DIR/burpsuite_pro_v2025.jar" ]; then
-    log_info "Running loader to download Burp Suite Pro JAR..."
-    sudo -u "$USERNAME" bash -c "cd '$BURP_DIR' && '$JAVA_BIN' -jar loader.jar"
-  else
-    log_already "Burp JAR"
-  fi
-
-  # Create global launcher
-  if [ ! -f "$BURP_WRAPPER" ]; then
-    log_info "Creating launcher at $BURP_WRAPPER..."
-    sudo tee "$BURP_WRAPPER" > /dev/null <<EOF
-#!/bin/bash
-exec "$JAVA_BIN" -jar "$BURP_DIR/burpsuite_pro_v2025.jar"
-EOF
-    sudo chmod +x "$BURP_WRAPPER"
-    log_success "You can now launch Burp with 'burpsuitepro'"
-  else
-    log_already "Burp launcher"
   fi
 }
 
@@ -415,10 +381,11 @@ EOF
   fi
 
   # Build Docker image
-  if [[ -z $(docker images -q "$IMAGE_NAME") ]]; then
-    silent_run sudo -u "$USERNAME" bash -c "cd '$REPO_DIR' && docker build -t '$IMAGE_NAME' --platform=linux/amd64 . > /dev/null 2>&1"
+  if [[ -z $(sudo -A docker images -q "$IMAGE_NAME") ]]; then
+    log_info "Building Docker image '$IMAGE_NAME'..."
+    silent_run sudo -A docker build -t "$IMAGE_NAME" --platform=linux/amd64 "$REPO_DIR"
   else
-    log_already "Docker image '$IMAGE_NAME' already exists. Skipping build."
+    log_already "Docker image '$IMAGE_NAME'"
   fi
 
   # Create loot directory
@@ -515,13 +482,14 @@ main() {
   add_kali_repo
   install_zellij
   install_golang
+  configure_bashrc
   install_web_recon_tools
   if [ "$INSTALL_ENV" = "VMWare" ]; then
+    install_java
     install_vmware_tools
     ensure_docker_group_active
     install_eden_ad_tools
   fi
-  configure_bashrc
   log_success "Initial setup complete. Restart your terminal session."
 }
 
