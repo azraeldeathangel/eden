@@ -18,11 +18,14 @@ log_error()   { echo -e "\033[1;31m[-]\033[0m $1"; exit 1; }
 log_already() { echo -e "\033[1;35m[*]\033[0m $1 already installed."; }
 
 silent_run() {
-  if "$@" > /dev/null 2> >(tee /tmp/setup-error.log >&2); then
+  if "$@" > /dev/null 2> /tmp/setup-error.log; then
     log_success "$*"
+    rm -f /tmp/setup-error.log
   else
     log_error "Command failed: $*"
+    echo "------ STDERR OUTPUT ------"
     cat /tmp/setup-error.log
+    echo "---------------------------"
     exit 1
   fi
 }
@@ -100,7 +103,7 @@ update_system() {
 }
 
 install_core_packages() {
-  local -r CORE_PKGS=(curl git python3 python3-pip python3-venv pipx unzip gcc vim binwalk file binutils nmap axel)
+  local -r CORE_PKGS=(curl git python3 python3-pip python3-venv pipx unzip gcc vim binwalk file binutils ffuf nmap axel)
   for pkg in "${CORE_PKGS[@]}"; do
     install_pkg "$pkg"
   done
@@ -190,14 +193,7 @@ install_golang() {
 install_vmware_tools() {
   log_info "Setting up VMWare-specific tools..."
 
-  # Burp Suite Pro
-  if ! command -v burpsuitepro >/dev/null 2>&1; then
-    log_info "Installing Burp Suite Pro..."
-    curl -fsSL https://raw.githubusercontent.com/xiv3r/Burpsuite-Professional/main/install.sh | sudo -A sh > /dev/null 2>&1
-    log_success "Burp Suite Pro installed."
-  else
-    log_already "Burp Suite Pro"
-  fi
+  install_burpsuite_pro
 
   # Docker
   if ! command -v docker >/dev/null 2>&1; then
@@ -239,7 +235,7 @@ install_vmware_tools() {
   fi
 
   # Network tools
-  local -r TOOLS=(telnet netcat-openbsd snmpcheck onesixtyone enum4linux-ng nfs-common smbclient smbmap hydra)
+  local -r TOOLS=(telnet netcat-openbsd snmpcheck onesixtyone enum4linux-ng nfs-common smbclient smbmap hydra axel)
   for tool in "${TOOLS[@]}"; do
     install_pkg "$tool"
   done
@@ -261,6 +257,118 @@ EOF
     log_success "$USERNAME is already in the docker group."
   fi
 }
+
+install_burpsuite_pro() {
+  local -r JAVA_URL="https://download.java.net/java/GA/jdk23.0.2/6da2a6609d6e406f85c491fcb119101b/7/GPL/openjdk-23.0.2_linux-x64_bin.tar.gz"
+  local -r JAVA_DIR="/opt/jdk"
+  local -r JAVA_HOME="$JAVA_DIR/jdk-23.0.2"
+  local -r JAVA_BIN="$JAVA_HOME/bin/java"
+  local -r BURP_DIR="/opt/Burpsuite-Professional"
+  local -r BURP_WRAPPER="/usr/local/bin/burpsuitepro"
+
+  # Download and install Java
+  if [ ! -x "$JAVA_BIN" ]; then
+    log_info "Downloading OpenJDK 23..."
+    sudo -A mkdir -p "$JAVA_DIR"
+    curl -sL "$JAVA_URL" -o /tmp/jdk23.tar.gz
+    sudo -A tar -xzf /tmp/jdk23.tar.gz -C "$JAVA_DIR"
+    sudo -A update-alternatives --install /usr/bin/java java "$JAVA_BIN" 1
+    sudo -A update-alternatives --set java "$JAVA_BIN"
+    log_success "OpenJDK 23 installed and set as default Java."
+  else
+    log_already "OpenJDK 23"
+  fi
+
+  # Clone Burp loader and run loader.jar
+  if [ ! -d "$BURP_DIR" ]; then
+    log_info "Cloning Burp Suite Pro loader..."
+    sudo -A git clone https://github.com/xiv3r/Burpsuite-Professional "$BURP_DIR"
+    sudo -A chown -R "$USERNAME:$USERNAME" "$BURP_DIR"
+  else
+    log_already "Burp Suite loader repo"
+  fi
+
+  if [ ! -f "$BURP_DIR/burpsuite_pro_v2025.jar" ]; then
+    log_info "Running loader to download Burp Suite Pro JAR..."
+    sudo -u "$USERNAME" bash -c "cd '$BURP_DIR' && '$JAVA_BIN' -jar loader.jar"
+  else
+    log_already "Burp JAR"
+  fi
+
+  # Create global launcher
+  if [ ! -f "$BURP_WRAPPER" ]; then
+    log_info "Creating launcher at $BURP_WRAPPER..."
+    sudo tee "$BURP_WRAPPER" > /dev/null <<EOF
+#!/bin/bash
+exec "$JAVA_BIN" -jar "$BURP_DIR/burpsuite_pro_v2025.jar"
+EOF
+    sudo chmod +x "$BURP_WRAPPER"
+    log_success "You can now launch Burp with 'burpsuitepro'"
+  else
+    log_already "Burp launcher"
+  fi
+}
+
+install_web_recon_tools() {
+    log_info "Installing web recon tools..."
+
+    # subfinder
+    if command -v subfinder &>/dev/null; then
+        log_already "subfinder"
+    else
+        log_info "Installing subfinder..."
+        silent_run go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+    fi
+
+    # Sublist3r
+    if [ -d "Sublist3r" ]; then
+        log_already "Sublist3r"
+    else
+        log_info "Cloning Sublist3r..."
+        silent_run git clone https://github.com/aboul3la/Sublist3r.git
+    fi
+
+    # waymore
+    if pipx list | grep -q waymore; then
+        log_already "waymore"
+    else
+        log_info "Installing waymore..."
+        silent_run pipx install git+https://github.com/xnl-h4ck3r/waymore.git
+    fi
+
+    # amass
+    if command -v amass &>/dev/null; then
+        log_already "amass"
+    else
+        log_info "Installing amass..."
+        silent_run go install github.com/owasp-amass/amass/v4/...@master
+    fi
+
+    # httpx
+    if command -v httpx &>/dev/null; then
+        log_already "httpx"
+    else
+        log_info "Installing httpx..."
+        silent_run go install github.com/projectdiscovery/httpx/cmd/httpx@latest
+    fi
+
+    # nuclei
+    if command -v nuclei &>/dev/null; then
+        log_already "nuclei"
+    else
+        log_info "Installing nuclei..."
+        silent_run go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+    fi
+
+    # subbrute
+    if [ -d "subbrute" ]; then
+        log_already "subbrute"
+    else
+        log_info "Cloning subbrute..."
+        silent_run git clone https://github.com/TheRook/subbrute.git
+    fi
+}
+
 
 install_eden_ad_tools() {
   local REPO_DIR="/opt/eden-ad-tools"
@@ -402,12 +510,12 @@ main() {
   banner
   prompt_user
   ask_env
-  add_kali_repo
   update_system
   install_core_packages
-  install_impacket
+  add_kali_repo
   install_zellij
   install_golang
+  install_web_recon_tools
   if [ "$INSTALL_ENV" = "VMWare" ]; then
     install_vmware_tools
     ensure_docker_group_active
