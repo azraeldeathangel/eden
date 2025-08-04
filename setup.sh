@@ -233,10 +233,13 @@ install_vmware_tools() {
   fi
 
   # Network tools
-  local -r TOOLS=(telnet netcat-openbsd snmpcheck onesixtyone enum4linux-ng nfs-common smbclient smbmap hydra axel)
+  local -r TOOLS=(telnet netcat-openbsd snmpcheck onesixtyone enum4linux-ng nfs-common smbclient smbmap hydra axel libkrb5-dev neo4j)
   for tool in "${TOOLS[@]}"; do
     install_pkg "$tool"
   done
+
+  # BloodyAD
+  pip install autobloody
 }
 
 ensure_docker_group_active() {
