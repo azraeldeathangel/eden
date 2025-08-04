@@ -363,7 +363,7 @@ install_eden_ad_tools() {
     log_fail "Dockerfile not found"
     exit 1
   else
-    docker build -t myimage:latest .
+
     if [ $? -eq 0]; then
       log_success "Docker build succeeded"
     else
