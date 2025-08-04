@@ -11,14 +11,17 @@ export SUDO_ASKPASS="$ASKPASS_SCRIPT"
 # ===============================
 # Logging Functions
 # ===============================
-log_info()    { echo -e "\033[1;34m[*]\033[0m $1"; }
+log_info() { echo -e "\033[1;34m[*]\033[0m $1"; }
 log_success() { echo -e "\033[1;32m[+]\033[0m $1"; }
-log_warn()    { echo -e "\033[1;35m[!]\033[0m $1"; }
-log_error()   { echo -e "\033[1;31m[-]\033[0m $1"; exit 1; }
+log_warn() { echo -e "\033[1;35m[!]\033[0m $1"; }
+log_error() {
+  echo -e "\033[1;31m[-]\033[0m $1"
+  exit 1
+}
 log_already() { echo -e "\033[1;35m[*]\033[0m $1 already installed."; }
 
 silent_run() {
-  if "$@" > /dev/null 2> /tmp/setup-error.log; then
+  if "$@" >/dev/null 2>/tmp/setup-error.log; then
     log_success "$*"
     rm -f /tmp/setup-error.log
   else
@@ -73,10 +76,10 @@ prompt_user() {
   stty -echo
   read -r PASSWORD
   stty echo
-  echo "$PASSWORD" > "$TMP_PW"
+  echo "$PASSWORD" >"$TMP_PW"
   chmod 600 "$TMP_PW"
 
-  cat <<EOF > "$ASKPASS_SCRIPT"
+  cat <<EOF >"$ASKPASS_SCRIPT"
 #!/bin/bash
 cat "$TMP_PW"
 EOF
@@ -89,9 +92,15 @@ ask_env() {
   PS3="#? "
   select ENV in "WSL" "VMWare"; do
     case $REPLY in
-      1 ) INSTALL_ENV="WSL"; break ;;
-      2 ) INSTALL_ENV="VMWare"; break ;;
-      * ) echo -e "\033[1;35m[!]\033[0m Select 1 (WSL) or 2 (VMWare)" ;;
+    1)
+      INSTALL_ENV="WSL"
+      break
+      ;;
+    2)
+      INSTALL_ENV="VMWare"
+      break
+      ;;
+    *) echo -e "\033[1;35m[!]\033[0m Select 1 (WSL) or 2 (VMWare)" ;;
     esac
   done
 }
@@ -119,7 +128,7 @@ add_kali_repo() {
   # Add repo list if not already present
   if [ ! -f "$KALI_LIST" ] || ! grep -q "^deb .*kali" "$KALI_LIST"; then
     log_info "Adding Kali Linux APT repository..."
-    echo "$KALI_REPO" | sudo -A tee "$KALI_LIST" > /dev/null
+    echo "$KALI_REPO" | sudo -A tee "$KALI_LIST" >/dev/null
   else
     log_already "Kali APT source"
   fi
@@ -132,12 +141,12 @@ add_kali_repo() {
 
   # Add the updated Kali key
   log_info "Importing Kali GPG key..."
-  curl -fsSL "$KALI_KEY_URL" | gpg --dearmor | sudo -A tee "$KALI_GPG" > /dev/null
+  curl -fsSL "$KALI_KEY_URL" | gpg --dearmor | sudo -A tee "$KALI_GPG" >/dev/null
 
   # Add APT pinning if not already pinned
   if [ ! -f "$KALI_PIN" ]; then
     log_info "Setting APT pinning for Kali..."
-    sudo -A tee "$KALI_PIN" > /dev/null <<EOF
+    sudo -A tee "$KALI_PIN" >/dev/null <<EOF
 Package: *
 Pin: release o=Kali
 Pin-Priority: 50
@@ -197,10 +206,10 @@ install_vmware_tools() {
   if ! command -v docker >/dev/null 2>&1; then
     log_info "Installing Docker..."
     sudo -A mkdir -p /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor | sudo -A tee /etc/apt/keyrings/docker.gpg > /dev/null
+    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor | sudo -A tee /etc/apt/keyrings/docker.gpg >/dev/null
     sudo -A chmod a+r /etc/apt/keyrings/docker.gpg
     echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" |
-      sudo -A tee /etc/apt/sources.list.d/docker.list > /dev/null
+      sudo -A tee /etc/apt/sources.list.d/docker.list >/dev/null
     silent_run sudo -A apt-get update
     silent_run sudo -A apt-get install -y docker-ce docker-ce-cli containerd.io
     sudo -A usermod -aG docker "$USERNAME"
@@ -233,13 +242,13 @@ install_vmware_tools() {
   fi
 
   # Network tools
-  local -r TOOLS=(telnet netcat-openbsd snmpcheck onesixtyone enum4linux-ng nfs-common smbclient smbmap hydra axel libkrb5-dev neo4j)
+  local -r TOOLS=(telnet netcat-openbsd snmpcheck onesixtyone enum4linux-ng nfs-common smbclient smbmap hydra axel libkrb5-dev)
   for tool in "${TOOLS[@]}"; do
     install_pkg "$tool"
   done
 
   # BloodyAD
-  pip install autobloody
+  pipx install autobloody
 }
 
 ensure_docker_group_active() {
@@ -279,65 +288,64 @@ install_java() {
 }
 
 install_web_recon_tools() {
-    log_info "Installing web recon tools..."
+  log_info "Installing web recon tools..."
 
-    # subfinder
-    if command -v subfinder &>/dev/null; then
-        log_already "subfinder"
-    else
-        log_info "Installing subfinder..."
-        silent_run go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-    fi
+  # subfinder
+  if command -v subfinder &>/dev/null; then
+    log_already "subfinder"
+  else
+    log_info "Installing subfinder..."
+    silent_run go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+  fi
 
-    # Sublist3r
-    if [ -d "Sublist3r" ]; then
-        log_already "Sublist3r"
-    else
-        log_info "Cloning Sublist3r..."
-        silent_run git clone https://github.com/aboul3la/Sublist3r.git
-    fi
+  # Sublist3r
+  if [ -d "Sublist3r" ]; then
+    log_already "Sublist3r"
+  else
+    log_info "Cloning Sublist3r..."
+    silent_run git clone https://github.com/aboul3la/Sublist3r.git
+  fi
 
-    # waymore
-    if pipx list | grep -q waymore; then
-        log_already "waymore"
-    else
-        log_info "Installing waymore..."
-        silent_run pipx install git+https://github.com/xnl-h4ck3r/waymore.git
-    fi
+  # waymore
+  if pipx list | grep -q waymore; then
+    log_already "waymore"
+  else
+    log_info "Installing waymore..."
+    silent_run pipx install git+https://github.com/xnl-h4ck3r/waymore.git
+  fi
 
-    # amass
-    if command -v amass &>/dev/null; then
-        log_already "amass"
-    else
-        log_info "Installing amass..."
-        silent_run go install github.com/owasp-amass/amass/v4/...@master
-    fi
+  # amass
+  if command -v amass &>/dev/null; then
+    log_already "amass"
+  else
+    log_info "Installing amass..."
+    silent_run go install github.com/owasp-amass/amass/v4/...@master
+  fi
 
-    # httpx
-    if command -v httpx &>/dev/null; then
-        log_already "httpx"
-    else
-        log_info "Installing httpx..."
-        silent_run go install github.com/projectdiscovery/httpx/cmd/httpx@latest
-    fi
+  # httpx
+  if command -v httpx &>/dev/null; then
+    log_already "httpx"
+  else
+    log_info "Installing httpx..."
+    silent_run go install github.com/projectdiscovery/httpx/cmd/httpx@latest
+  fi
 
-    # nuclei
-    if command -v nuclei &>/dev/null; then
-        log_already "nuclei"
-    else
-        log_info "Installing nuclei..."
-        silent_run go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
-    fi
+  # nuclei
+  if command -v nuclei &>/dev/null; then
+    log_already "nuclei"
+  else
+    log_info "Installing nuclei..."
+    silent_run go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+  fi
 
-    # subbrute
-    if [ -d "subbrute" ]; then
-        log_already "subbrute"
-    else
-        log_info "Cloning subbrute..."
-        silent_run git clone https://github.com/TheRook/subbrute.git
-    fi
+  # subbrute
+  if [ -d "subbrute" ]; then
+    log_already "subbrute"
+  else
+    log_info "Cloning subbrute..."
+    silent_run git clone https://github.com/TheRook/subbrute.git
+  fi
 }
-
 
 install_eden_ad_tools() {
   local REPO_DIR="/opt/eden-ad-tools"
@@ -356,7 +364,7 @@ install_eden_ad_tools() {
 
   # Write Dockerfile only if it doesn't exist
   if [ ! -f "$DOCKERFILE" ]; then
-    cat <<EOF | sudo -u "$USERNAME" tee "$DOCKERFILE" > /dev/null
+    cat <<EOF | sudo -u "$USERNAME" tee "$DOCKERFILE" >/dev/null
   FROM python:3.11-slim
   
   ENV DEBIAN_FRONTEND=noninteractive
@@ -377,7 +385,7 @@ install_eden_ad_tools() {
   WORKDIR /loot
   CMD ["/bin/bash"]
 EOF
-  
+
     log_success "Dockerfile created at $DOCKERFILE"
   else
     log_already "Dockerfile at $DOCKERFILE"
@@ -397,7 +405,7 @@ EOF
 
   # Write /usr/local/bin/eden wrapper script only if it doesn't exist
   if [ ! -f "$WRAPPER" ]; then
-    sudo tee "$WRAPPER" > /dev/null <<EOF
+    sudo tee "$WRAPPER" >/dev/null <<EOF
   #!/bin/bash
   
   IMAGE="$IMAGE_NAME"
@@ -441,7 +449,7 @@ EOF
       ;;
   esac
 EOF
-  
+
     sudo chmod +x "$WRAPPER"
     log_success "Wrapper script installed at $WRAPPER"
   else
@@ -453,8 +461,8 @@ configure_bashrc() {
   local BASHRC="/home/$USERNAME/.bashrc"
   local USER_HOME="/home/$USERNAME"
   log_info "Appending Golang env and aliases to $BASHRC..."
-  echo "" | sudo -u "$USERNAME" tee -a "$BASHRC" > /dev/null
-  sudo -u "$USERNAME" bash << EOF
+  echo "" | sudo -u "$USERNAME" tee -a "$BASHRC" >/dev/null
+  sudo -u "$USERNAME" bash <<EOF
 grep -q 'GOPATH=' "$BASHRC" || cat << 'CONFIG' >> "$BASHRC"
 
 # Golang
