@@ -246,9 +246,6 @@ install_vmware_tools() {
   for tool in "${TOOLS[@]}"; do
     install_pkg "$tool"
   done
-
-  # BloodyAD
-  pipx install autobloody
 }
 
 ensure_docker_group_active() {
@@ -379,6 +376,7 @@ install_eden_ad_tools() {
   
   RUN pip install --no-cache-dir pipx && \\
       pipx ensurepath && \\
+      pipx install autobloody && \\
       pipx install git+https://github.com/fortra/impacket.git && \\
       pipx install git+https://github.com/Pennyw0rth/NetExec
   
