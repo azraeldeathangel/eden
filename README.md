@@ -12,7 +12,6 @@
 
   * Core utilities and networking tools
   * Docker (with proper keyring setup and user group management)
-  * Burp Suite Pro
   * Sliver C2
   * Metasploit Framework
   * Zellij terminal multiplexer
