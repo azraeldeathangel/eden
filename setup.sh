@@ -374,10 +374,10 @@ install_eden_ad_tools() {
           python3-dev python3-pip pipx \\
       && apt-get clean && rm -rf /var/lib/apt/lists/*
   
-  RUN pip install --no-cache-dir pipx && \\
-      pipx ensurepath && \\
-      pipx install autobloody && \\
-      pipx install git+https://github.com/fortra/impacket.git && \\
+  RUN pip install --no-cache-dir pipx && \
+      pipx ensurepath && \
+      pipx install autobloody && \
+      pipx install git+https://github.com/fortra/impacket.git && \
       pipx install git+https://github.com/Pennyw0rth/NetExec
   
   WORKDIR /loot
