@@ -364,7 +364,7 @@ install_eden_ad_tools() {
     exit 1
   else
 
-    if [ $? -eq 0]; then
+    if [ $? -eq 0 ]; then
       log_success "Docker build succeeded"
     else
       log_error "Docker build failed"
