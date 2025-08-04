@@ -345,36 +345,28 @@ install_web_recon_tools() {
 }
 
 install_eden_ad_tools() {
-  local REPO_DIR="/opt/eden-ad-tools"
   local IMAGE_NAME="eden-ad-tools"
   local LOOT_DIR="/home/$USERNAME/loot"
-  local DOCKERFILE="Dockerfile"
+  local REPO_DIR="$(dirname "$0")" # folder where setup.sh + Dockerfile live
+  local DOCKERFILE="$REPO_DIR/Dockerfile"
   local WRAPPER="/usr/local/bin/eden"
 
   log_info "Setting up Eden AD tools Docker container..."
 
-  # Create /opt/eden-ad-tools directory
-  if [ ! -d "$REPO_DIR" ]; then
-    sudo -A mkdir -p "$REPO_DIR"
-    sudo -A chown "$USERNAME:$USERNAME" "$REPO_DIR"
+  # Check Dockerfile exists
+  if [ ! -f "$DOCKERFILE" ]; then
+    log_error "Dockerfile not found at $DOCKERFILE"
+    exit 1
   fi
 
-  if [ ! -f "$DOCKERFILE" ]; then
-    log_error "Dockerfile not found"
-    exit 1
-  else
-
-    if [ $? -eq 0 ]; then
+  # Build Docker image if it doesn't exist
+  if [[ -z $(sudo -A docker images -q "$IMAGE_NAME") ]]; then
+    log_info "Building Docker image '$IMAGE_NAME' from $DOCKERFILE..."
+    if sudo -A docker build -t "$IMAGE_NAME" --platform=linux/amd64 "$REPO_DIR"; then
       log_success "Docker build succeeded"
     else
       log_error "Docker build failed"
     fi
-  fi
-
-  # Build Docker image
-  if [[ -z $(sudo -A docker images -q "$IMAGE_NAME") ]]; then
-    log_info "Building Docker image '$IMAGE_NAME'..."
-    silent_run sudo -A docker build -t "$IMAGE_NAME" --platform=linux/amd64 "$REPO_DIR"
   else
     log_already "Docker image '$IMAGE_NAME' already exists"
   fi
@@ -383,51 +375,51 @@ install_eden_ad_tools() {
   mkdir -p "$LOOT_DIR"
   sudo -A chown "$USERNAME:$USERNAME" "$LOOT_DIR"
 
-  # Write /usr/local/bin/eden wrapper script only if it doesn't exist
+  # Write wrapper script if missing
   if [ ! -f "$WRAPPER" ]; then
     sudo tee "$WRAPPER" >/dev/null <<EOF
-  #!/bin/bash
-  
-  IMAGE="$IMAGE_NAME"
-  LOOT_DIR="/home/$USERNAME/loot"
-  
-  print_help() {
-    echo "Usage: eden [command]"
-    echo "Commands:"
-    echo "  shell           Start interactive container"
-    echo "  exec \"<cmd>\"    Execute command inside container"
-    echo "  ps              Show running Eden containers"
-  }
-  
-  case "\$1" in
-    shell)
-      exec sudo docker run --rm -it \\
-        --network host \\
-        -v "\$LOOT_DIR:/loot" \\
-        "\$IMAGE"
-      ;;
-    exec)
-      shift
-      if [ \$# -eq 0 ]; then
-        echo "Missing command. Usage: eden exec \"<command>\""
-        exit 1
-      fi
-      exec sudo docker run --rm -it \\
-        --network host \\
-        -v "\$LOOT_DIR:/loot" \\
-        "\$IMAGE" /bin/bash -c "\$*"
-      ;;
-    ps)
-      sudo docker ps --filter ancestor="\$IMAGE"
-      ;;
-    help|-h|--help)
-      print_help
-      ;;
-    *)
-      echo "Unknown command. Try: eden help"
+#!/bin/bash
+
+IMAGE="$IMAGE_NAME"
+LOOT_DIR="/home/$USERNAME/loot"
+
+print_help() {
+  echo "Usage: eden [command]"
+  echo "Commands:"
+  echo "  shell           Start interactive container"
+  echo "  exec \"<cmd>\"    Execute command inside container"
+  echo "  ps              Show running Eden containers"
+}
+
+case "\$1" in
+  shell)
+    exec sudo docker run --rm -it \\
+      --network host \\
+      -v "\$LOOT_DIR:/loot" \\
+      "\$IMAGE"
+    ;;
+  exec)
+    shift
+    if [ \$# -eq 0 ]; then
+      echo "Missing command. Usage: eden exec \"<command>\""
       exit 1
-      ;;
-  esac
+    fi
+    exec sudo docker run --rm -it \\
+      --network host \\
+      -v "\$LOOT_DIR:/loot" \\
+      "\$IMAGE" /bin/bash -c "\$*"
+    ;;
+  ps)
+    sudo docker ps --filter ancestor="\$IMAGE"
+    ;;
+  help|-h|--help)
+    print_help
+    ;;
+  *)
+    echo "Unknown command. Try: eden help"
+    exit 1
+    ;;
+esac
 EOF
 
     sudo chmod +x "$WRAPPER"
