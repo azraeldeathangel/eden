@@ -360,14 +360,14 @@ install_eden_ad_tools() {
   fi
 
   if [ ! -f "$DOCKERFILE" ]; then
-    log_fail "Dockerfile not found"
+    log_error "Dockerfile not found"
     exit 1
   else
 
     if [ $? -eq 0]; then
       log_success "Docker build succeeded"
     else
-      log_fail "Docker build failed"
+      log_error "Docker build failed"
     fi
   fi
 
