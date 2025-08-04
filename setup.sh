@@ -348,7 +348,7 @@ install_eden_ad_tools() {
   local REPO_DIR="/opt/eden-ad-tools"
   local IMAGE_NAME="eden-ad-tools"
   local LOOT_DIR="/home/$USERNAME/loot"
-  local DOCKERFILE="$REPO_DIR/Dockerfile"
+  local DOCKERFILE="Dockerfile"
   local WRAPPER="/usr/local/bin/eden"
 
   log_info "Setting up Eden AD tools Docker container..."
@@ -359,34 +359,16 @@ install_eden_ad_tools() {
     sudo -A chown "$USERNAME:$USERNAME" "$REPO_DIR"
   fi
 
-  # Write Dockerfile only if it doesn't exist
   if [ ! -f "$DOCKERFILE" ]; then
-    cat <<EOF | sudo -u "$USERNAME" tee "$DOCKERFILE" >/dev/null
-  FROM python:3.11-slim
-  
-  ENV DEBIAN_FRONTEND=noninteractive
-  ENV PIPX_HOME=/root/.local/pipx
-  ENV PATH=/root/.local/bin:\$PIPX_HOME/venvs/impacket/bin:\$PIPX_HOME/venvs/ldapdomaindump/bin:\$PIPX_HOME/venvs/crackmapexec/bin:\$PATH
-  
-  RUN apt-get update && \\
-      apt-get install -y --no-install-recommends \\
-          build-essential git gcc libldap2-dev libsasl2-dev libssl-dev \\
-          python3-dev python3-pip pipx \\
-      && apt-get clean && rm -rf /var/lib/apt/lists/*
-  
-  RUN pip install --no-cache-dir pipx && \
-      pipx ensurepath && \
-      pipx install autobloody && \
-      pipx install git+https://github.com/fortra/impacket.git && \
-      pipx install git+https://github.com/Pennyw0rth/NetExec
-  
-  WORKDIR /loot
-  CMD ["/bin/bash"]
-EOF
-
-    log_success "Dockerfile created at $DOCKERFILE"
+    log_fail "Dockerfile not found"
+    exit 1
   else
-    log_already "Dockerfile at $DOCKERFILE"
+    docker build -t myimage:latest .
+    if [ $? -eq 0]; then
+      log_success "Docker build succeeded"
+    else
+      log_fail "Docker build failed"
+    fi
   fi
 
   # Build Docker image
@@ -394,7 +376,7 @@ EOF
     log_info "Building Docker image '$IMAGE_NAME'..."
     silent_run sudo -A docker build -t "$IMAGE_NAME" --platform=linux/amd64 "$REPO_DIR"
   else
-    log_already "Docker image '$IMAGE_NAME'"
+    log_already "Docker image '$IMAGE_NAME' already exists"
   fi
 
   # Create loot directory
